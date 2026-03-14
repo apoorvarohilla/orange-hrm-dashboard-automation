@@ -7,69 +7,32 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
-import traceback
-import logging
 import csv
 import io
+import traceback
+import time
 from datetime import datetime
-import threading
 
 app = Flask(__name__)
 CORS(app)
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('automation.log'),
-        logging.StreamHandler()
-    ]
-)
-
-logger = logging.getLogger(__name__)
-
 latest_employees = []
 
 
-def create_chrome_driver_with_timeout(timeout=30):
+def create_driver():
+    chrome_options = Options()
+    # chrome_options.add_argument("--headless=new")
+    chrome_options.add_argument("--window-size=1920,1080")
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
 
-    driver_holder = {"driver": None, "error": None}
+    driver = webdriver.Chrome(
+        service=Service(ChromeDriverManager().install()),
+        options=chrome_options
+    )
 
-    def create_driver():
-        try:
-            chrome_options = Options()
-            chrome_options.add_argument("--headless=new")
-            chrome_options.add_argument("--window-size=1920,1080")
-            chrome_options.add_argument("--disable-gpu")
-            chrome_options.add_argument("--no-sandbox")
-            chrome_options.add_argument("--disable-dev-shm-usage")
-            chrome_options.add_argument("--disable-extensions")
-            chrome_options.add_argument("--disable-plugins")
-            chrome_options.add_argument("--disable-images")
-            chrome_options.add_argument("--disable-software-rasterizer")
-            chrome_options.add_argument("--remote-debugging-port=9222")
-
-            service = Service(ChromeDriverManager().install())
-
-            driver_holder["driver"] = webdriver.Chrome(
-                service=service,
-                options=chrome_options
-            )
-
-        except Exception as e:
-            driver_holder["error"] = str(e)
-
-    thread = threading.Thread(target=create_driver, daemon=True)
-    thread.start()
-    thread.join(timeout=timeout)
-
-    if thread.is_alive():
-        driver_holder["error"] = f"Chrome driver initialization timeout ({timeout}s)"
-
-    if driver_holder["error"]:
-        raise Exception(driver_holder["error"])
-
-    return driver_holder["driver"]
+    return driver
 
 
 def run_automation(username, password, first_name, last_name, emp_id):
@@ -83,82 +46,86 @@ def run_automation(username, password, first_name, last_name, emp_id):
     try:
 
         logs.append("Initializing browser")
-        driver = create_chrome_driver_with_timeout()
 
-        wait = WebDriverWait(driver, 20)
+        driver = create_driver()
+        wait = WebDriverWait(driver, 40)
 
-        logs.append("Opening OrangeHRM")
+        logs.append("Opening OrangeHRM site")
 
-        driver.get("https://opensource-demo.orangehrmlive.com")
+        driver.get("https://opensource-demo.orangehrmlive.com/web/index.php/auth/login")
 
-        wait.until(
-            EC.presence_of_element_located((By.NAME, "username"))
-        )
+        wait.until(EC.presence_of_element_located((By.NAME, "username")))
 
-        logs.append("Entering credentials")
+        logs.append("Entering login credentials")
 
         driver.find_element(By.NAME, "username").send_keys(username)
         driver.find_element(By.NAME, "password").send_keys(password)
 
-        driver.find_element(By.XPATH, "//button[@type='submit']").click()
+        driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
 
-        wait.until(
-            EC.presence_of_element_located((By.XPATH, "//span[text()='PIM']"))
-        )
+        wait.until(EC.url_contains("dashboard"))
 
         logs.append("Login successful")
 
-        driver.find_element(By.XPATH, "//span[text()='PIM']").click()
+        time.sleep(2)
 
-        wait.until(
-            EC.presence_of_element_located((By.XPATH, "//button[normalize-space()='Add']"))
+        pim_menu = wait.until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, "a[href*='pim']"))
         )
 
-        driver.find_element(By.XPATH, "//button[normalize-space()='Add']").click()
+        driver.execute_script("arguments[0].click();", pim_menu)
 
-        wait.until(
-            EC.presence_of_element_located((By.NAME, "firstName"))
+        logs.append("Opened PIM module")
+
+        wait.until(EC.url_contains("viewEmployeeList"))
+
+        add_btn = wait.until(
+            EC.element_to_be_clickable((By.XPATH, "//button[normalize-space()='Add']"))
         )
+
+        driver.execute_script("arguments[0].click();", add_btn)
+
+        logs.append("Opened Add Employee page")
+
+        wait.until(EC.presence_of_element_located((By.NAME, "firstName")))
+
+        logs.append("Entering employee details")
 
         driver.find_element(By.NAME, "firstName").send_keys(first_name)
+
         driver.find_element(By.NAME, "lastName").send_keys(last_name)
 
-        emp_field = wait.until(
+        # Correct Employee ID field (4th input)
+        emp_id_field = wait.until(
             EC.presence_of_element_located(
-                (By.XPATH, "//label[text()='Employee Id']/../following-sibling::div/input")
+                (By.XPATH, "(//input[contains(@class,'oxd-input')])[4]")
             )
         )
 
-        emp_field.clear()
-        emp_field.send_keys(emp_id)
+        emp_id_field.clear()
+        emp_id_field.send_keys(emp_id)
 
-        driver.find_element(By.XPATH, "//button[@type='submit']").click()
-
-        wait.until(
-            EC.presence_of_element_located(
-                (By.XPATH, "//h6[text()='Personal Details']")
-            )
+        save_btn = wait.until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, "button[type='submit']"))
         )
 
-        logs.append("Employee created")
+        driver.execute_script("arguments[0].click();", save_btn)
 
-        wait.until(
-            EC.element_to_be_clickable(
-                (By.XPATH, "//a[normalize-space()='Employee List']")
-            )
-        ).click()
+        wait.until(EC.presence_of_element_located((By.XPATH, "//h6")))
 
-        wait.until(
-            EC.presence_of_element_located(
-                (By.XPATH, "//div[@class='oxd-table-body']")
-            )
+        logs.append("Employee created successfully")
+
+        driver.get(
+            "https://opensource-demo.orangehrmlive.com/web/index.php/pim/viewEmployeeList"
         )
 
-        rows = driver.find_elements(By.XPATH, "//div[@class='oxd-table-body']/div")
+        wait.until(EC.presence_of_element_located((By.CLASS_NAME, "oxd-table-body")))
+
+        rows = driver.find_elements(By.CSS_SELECTOR, ".oxd-table-body > div")
 
         for r in rows[:10]:
 
-            cols = r.find_elements(By.XPATH, ".//div[@role='cell']")
+            cols = r.find_elements(By.CSS_SELECTOR, "div[role='cell']")
 
             if len(cols) >= 4:
 
@@ -166,7 +133,7 @@ def run_automation(username, password, first_name, last_name, emp_id):
                     "id": cols[1].text.strip(),
                     "firstName": cols[2].text.strip(),
                     "lastName": cols[3].text.strip(),
-                    "status": cols[4].text.strip() if len(cols) > 4 else "Active"
+                    "status": cols[4].text.strip()
                 }
 
                 employees.append(emp)
@@ -174,19 +141,6 @@ def run_automation(username, password, first_name, last_name, emp_id):
         latest_employees = employees
 
         logs.append(f"Extracted {len(employees)} employees")
-
-        try:
-
-            driver.find_element(By.XPATH, "//span[@class='oxd-userdropdown-tab']").click()
-
-            wait.until(
-                EC.element_to_be_clickable(
-                    (By.XPATH, "//a[text()='Logout']")
-                )
-            ).click()
-
-        except:
-            logs.append("Logout failed")
 
         driver.quit()
 
@@ -204,6 +158,7 @@ def run_automation(username, password, first_name, last_name, emp_id):
 
     except Exception as e:
 
+        logs.append("Automation failed")
         logs.append(str(e))
         logs.append(traceback.format_exc())
 
@@ -223,18 +178,18 @@ def run():
 
     data = request.json
 
-    username = data.get("username")
-    password = data.get("password")
-    first_name = data.get("firstName")
-    last_name = data.get("lastName")
-    emp_id = data.get("employeeId")
-
-    result = run_automation(username, password, first_name, last_name, emp_id)
+    result = run_automation(
+        data.get("username"),
+        data.get("password"),
+        data.get("firstName"),
+        data.get("lastName"),
+        data.get("employeeId")
+    )
 
     return jsonify(result)
 
 
-@app.route("/api/employees", methods=["GET"])
+@app.route("/api/employees")
 def employees():
 
     return jsonify({
@@ -243,7 +198,7 @@ def employees():
     })
 
 
-@app.route("/api/export-csv", methods=["GET"])
+@app.route("/api/export-csv")
 def export_csv():
 
     output = io.StringIO()
@@ -257,7 +212,6 @@ def export_csv():
     writer.writerows(latest_employees)
 
     mem = io.BytesIO()
-
     mem.write(output.getvalue().encode("utf-8"))
     mem.seek(0)
 
@@ -271,15 +225,10 @@ def export_csv():
     )
 
 
-@app.route("/api/health", methods=["GET"])
+@app.route("/api/health")
 def health():
-
-    return jsonify({
-        "status": "healthy",
-        "service": "OrangeHRM Automation API"
-    })
+    return jsonify({"status": "healthy"})
 
 
 if __name__ == "__main__":
-
     app.run(host="0.0.0.0", port=9000, debug=True)

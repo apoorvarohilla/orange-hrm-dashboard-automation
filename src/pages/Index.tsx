@@ -125,9 +125,6 @@ const Index = () => {
               OrangeHRM Automation Dashboard
             </h1>
           </div>
-          <span className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-muted-foreground">
-            Backend: Port 9000
-          </span>
         </div>
       </header>
 
