@@ -13,7 +13,7 @@ An RPA solution for automating employee operations on OrangeHRM through a React 
 
 ## Prerequisites
 
-- Node.js & npm
+- Node.js & npm.
 - Python 3.8+
 - Google Chrome browser
 
