@@ -1,26 +1,23 @@
-
 # OrangeHRM Dashboard-Driven Automation
 
-A comprehensive RPA solution for automating employee operations on the OrangeHRM platform through a dashboard interface.
+An RPA solution for automating employee operations on OrangeHRM through a React dashboard.
 
 ## Features
 
-- **Dashboard Interface**: User-friendly React dashboard for entering automation parameters
-- **Automated Login**: Secure credential-based authentication on OrangeHRM
-- **Employee Management**: Add new employees to the system via automation
-- **Data Extraction**: Extract and display employee data in table format
-- **Logging System**: Detailed logs of each automation step
-- **CSV Export**: Export employee data as CSV files
+- **Dashboard Interface**: React dashboard for entering automation parameters
+- **Automated Login**: Credential-based authentication on OrangeHRM
+- **Employee Management**: Add new employees via automation
+- **Data Extraction**: Extract and display employee list in table format
+- **Live Logs**: Real-time logs of each automation step
+- **CSV Export**: Export extracted employee data as CSV
 
-## Getting Started
+## Prerequisites
 
-### Prerequisites
+- Node.js & npm
+- Python 3.8+
+- Google Chrome browser
 
-- Node.js & npm (https://nodejs.org/)
-- Python 3.8+ with pip
-- Chrome/Chromium browser for Selenium/Playwright
-
-### Installation
+## Installation
 
 1. **Clone the repository:**
    ```sh
@@ -35,84 +32,62 @@ A comprehensive RPA solution for automating employee operations on the OrangeHRM
 
 3. **Install backend dependencies:**
    ```sh
-   pip install flask flask-cors selenium python-dotenv
+   pip install -r requirements.txt
    ```
 
-### Running the Application
+## Running the Application
 
-1. **Start the frontend development server:**
-   ```sh
-   npm run dev
-   ```
-   The frontend will be available at `http://localhost:5173`
+Start both servers in separate terminals:
 
-2. **Start the Flask backend server (in a separate terminal):**
+1. **Backend:**
    ```sh
    python app.py
    ```
-   The backend will run on `http://localhost:9000`
+   Runs on `http://localhost:9000`
 
-## Tech Stack
+2. **Frontend:**
+   ```sh
+   npm run dev
+   ```
+   Runs on `http://localhost:5173`
 
-- **Frontend**: React, TypeScript, Vite, Tailwind CSS, shadcn-ui
-- **Backend**: Flask, Python
-- **Browser Automation**: Playwright/Selenium
-- **Testing**: Playwright, Vitest
+## Usage
+
+1. Open `http://localhost:5173` in your browser
+2. Fill in the form:
+   - OrangeHRM username and password
+   - First Name, Last Name, Employee ID
+3. Click **Trigger Automation**
+4. Monitor real-time logs
+5. View extracted employee table and click **Export as CSV**
+
+## API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/run` | Trigger automation |
+| GET | `/api/status/<job_id>` | Poll job status and logs |
+| GET | `/api/employees` | Get extracted employee list |
+| GET | `/api/export-csv` | Download employee data as CSV |
+| GET | `/api/health` | Health check |
 
 ## Project Structure
 
 ```
 ├── src/
-│   ├── components/     # React components
-│   ├── pages/          # Page components
-│   ├── lib/            # Utilities
-│   └── test/           # Tests
-├── app.py              # Flask backend
-├── vite.config.ts      # Vite configuration
-└── playwright.config.ts # Playwright configuration
+│   ├── components/         # React components
+│   │   ├── AutomationForm  # Input form
+│   │   ├── StatusPanel     # Live logs panel
+│   │   └── EmployeeTable   # Results table
+│   └── pages/
+│       └── Index.tsx       # Main dashboard page
+├── app.py                  # Flask backend + Selenium automation
+├── requirements.txt        # Python dependencies
+└── vite.config.ts          # Vite configuration
 ```
 
-## Environment Variables
+## Tech Stack
 
-Create a `.env` file in the project root:
-
-```
-FLASK_ENV=development
-FLASK_DEBUG=True
-```
-
-## Usage
-
-1. Fill in the automation form with:
-   - Username and Password for OrangeHRM
-   - First Name and Last Name of the employee
-   - Employee ID
-
-2. Click "Trigger Automation"
-
-3. Monitor the execution logs in real-time
-
-4. View the created employee in the results table
-
-## API Endpoints
-
-- `POST /api/run` - Trigger automation with provided parameters
-- `GET /api/employees` - Get extracted employee list
-
-## Testing
-
-Run tests with:
-```sh
-npm run test
-npm run test:watch
-```
-
-## Built With
-
-- **Vite** - Fast build tool and dev server
-- **React** - UI library
-- **TypeScript** - Type safety
-- **Tailwind CSS** - Styling
-- **shadcn-ui** - Accessible component library
-- **Flask** - Python web framework
-- **Playwright** - Browser automation
+- **Frontend**: React, TypeScript, Vite, Tailwind CSS, shadcn-ui
+- **Backend**: Flask, Python
+- **Automation**: Selenium, webdriver-manager
