@@ -2,6 +2,7 @@ export interface Employee {
   id: string;
   firstName: string;
   lastName: string;
+  jobTitle: string;
   status: string;
 }
 
@@ -27,6 +28,7 @@ const EmployeeTable = ({ employees }: EmployeeTableProps) => {
               <th className="px-4 py-2.5 font-medium">Employee ID</th>
               <th className="px-4 py-2.5 font-medium">First Name</th>
               <th className="px-4 py-2.5 font-medium">Last Name</th>
+              <th className="px-4 py-2.5 font-medium">Job Title</th>
               <th className="px-4 py-2.5 font-medium">Status</th>
             </tr>
           </thead>
@@ -37,12 +39,13 @@ const EmployeeTable = ({ employees }: EmployeeTableProps) => {
                 className="border-b border-border last:border-0 transition-colors hover:bg-muted/40"
               >
                 <td className="px-4 py-2.5 text-muted-foreground">{i + 1}</td>
-                <td className="px-4 py-2.5 text-foreground font-semibold">{emp.id}</td>
+                <td className="px-4 py-2.5 font-semibold text-foreground">{emp.id}</td>
                 <td className="px-4 py-2.5 text-foreground">{emp.firstName}</td>
                 <td className="px-4 py-2.5 text-foreground">{emp.lastName}</td>
+                <td className="px-4 py-2.5 text-foreground">{emp.jobTitle || "—"}</td>
                 <td className="px-4 py-2.5">
                   <span className="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-medium text-green-800">
-                    {emp.status}
+                    {emp.status || "Active"}
                   </span>
                 </td>
               </tr>

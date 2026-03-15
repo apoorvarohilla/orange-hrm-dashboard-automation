@@ -48,7 +48,7 @@ const StatusPanel = ({ logs, isRunning }: StatusPanelProps) => {
           <p className="text-muted-foreground">Waiting for automation to start…</p>
         ) : (
           logs.map((log, i) => (
-            <div key={i} className="py-0.5">
+            <div key={`${log.timestamp}-${i}`} className="py-0.5">
               <span className="text-muted-foreground/60">[{log.timestamp}]</span>{" "}
               <span className={typeColors[log.type]}>{log.message}</span>
             </div>

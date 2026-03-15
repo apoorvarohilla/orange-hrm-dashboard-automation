@@ -1,20 +1,28 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import AutomationForm, { type FormData } from "@/components/AutomationForm";
 import StatusPanel, { type LogEntry } from "@/components/StatusPanel";
 import EmployeeTable, { type Employee } from "@/components/EmployeeTable";
 import { Bot, Download } from "lucide-react";
 
-const API_BASE_URL = "http://localhost:9000";
+const API_BASE_URL = "";
 
 const Index = () => {
   const [isRunning, setIsRunning] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [createdEmployee, setCreatedEmployee] = useState<FormData | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const addLog = useCallback((message: string, type: LogEntry["type"] = "info") => {
     const timestamp = new Date().toLocaleTimeString("en-US", { hour12: false });
     setLogs((prev) => [...prev, { message, type, timestamp }]);
+  }, []);
+
+  const stopPolling = useCallback(() => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
   }, []);
 
   const runAutomation = useCallback(
@@ -23,15 +31,15 @@ const Index = () => {
       setLogs([]);
       setEmployees([]);
       setCreatedEmployee(null);
+      stopPolling();
 
       try {
         addLog("Connecting to automation backend...", "info");
-        
-        const response = await fetch(`${API_BASE_URL}/api/run`, {
+
+        // Step 1: Start the job — backend returns immediately with a jobId
+        const startRes = await fetch(`${API_BASE_URL}/api/run`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             username: data.username,
             password: data.password,
@@ -41,58 +49,73 @@ const Index = () => {
           }),
         });
 
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        if (!startRes.ok) {
+          const err = await startRes.json().catch(() => ({}));
+          throw new Error(err.error ?? `HTTP ${startRes.status}: ${startRes.statusText}`);
         }
 
-        const result = await response.json();
+        const { jobId } = await startRes.json();
+        addLog(`Job started (ID: ${jobId})`, "info");
 
-        // Add backend logs to UI
-        if (result.logs && Array.isArray(result.logs)) {
-          for (const logMessage of result.logs) {
-            // Determine log type based on message content
-            let logType: LogEntry["type"] = "info";
-            if (logMessage.includes("✓") || logMessage.includes("successful")) {
-              logType = "success";
-            } else if (logMessage.includes("✗") || logMessage.includes("ERROR") || logMessage.includes("error")) {
-              logType = "error";
-            } else if (logMessage.includes("Warning") || logMessage.includes("warning")) {
-              logType = "warning";
+        // Step 2: Poll /api/status/:jobId every 2 seconds for live logs + result
+        let lastLogCount = 0;
+
+        pollRef.current = setInterval(async () => {
+          try {
+            const statusRes = await fetch(`${API_BASE_URL}/api/status/${jobId}`);
+            if (!statusRes.ok) return;
+
+            const job = await statusRes.json();
+
+            // Append only NEW logs since last poll
+            const newLogs: string[] = job.logs.slice(lastLogCount);
+            lastLogCount = job.logs.length;
+
+            for (const msg of newLogs) {
+              const type: LogEntry["type"] =
+                msg.includes("✓") || msg.includes("successful") || msg.includes("success")
+                  ? "success"
+                  : msg.includes("✗") || msg.includes("ERROR") || msg.includes("error") || msg.includes("failed")
+                  ? "error"
+                  : msg.includes("Warning") || msg.includes("warning")
+                  ? "warning"
+                  : "info";
+              addLog(msg, type);
             }
-            addLog(logMessage, logType);
-          }
-        }
 
-        if (result.status === "success") {
-          addLog("Automation completed successfully!", "success");
-          
-          if (result.employees && Array.isArray(result.employees)) {
-            setEmployees(result.employees);
+            if (job.state === "done") {
+              stopPolling();
+              setEmployees(job.employees ?? []);
+              setCreatedEmployee(job.createdEmployee ?? null);
+              addLog("Automation completed successfully!", "success");
+              setIsRunning(false);
+            } else if (job.state === "error") {
+              stopPolling();
+              addLog(`Automation failed: ${job.error ?? "Unknown error"}`, "error");
+              setIsRunning(false);
+            }
+          } catch (pollErr) {
+            // Network hiccup during poll — don't abort, just skip this tick
+            console.warn("Poll error:", pollErr);
           }
-
-          if (result.createdEmployee) {
-            setCreatedEmployee(result.createdEmployee);
-          }
-        } else {
-          addLog("Automation failed. Check logs for details.", "error");
-        }
+        }, 2000);
       } catch (error) {
+        stopPolling();
         const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
         addLog(`Connection error: ${errorMessage}`, "error");
         addLog("Make sure the backend is running on http://localhost:9000", "warning");
         console.error("Automation error:", error);
-      } finally {
         setIsRunning(false);
       }
     },
-    [addLog]
+    [addLog, stopPolling]
   );
 
   const handleExportCSV = useCallback(async () => {
     try {
       addLog("Preparing CSV export...", "info");
       const response = await fetch(`${API_BASE_URL}/api/export-csv`);
-      
+
       if (!response.ok) {
         throw new Error("Failed to export CSV");
       }
@@ -101,12 +124,12 @@ const Index = () => {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `employees_${new Date().toISOString().split('T')[0]}.csv`;
+      link.download = `employees_${new Date().toISOString().split("T")[0]}.csv`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      
+
       addLog("CSV exported successfully!", "success");
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
@@ -134,7 +157,7 @@ const Index = () => {
           {/* Left: Form */}
           <div className="space-y-6">
             <AutomationForm onSubmit={runAutomation} isRunning={isRunning} />
-            
+
             {/* Created Employee Info */}
             {createdEmployee && (
               <div className="rounded-lg border border-green-200 bg-green-50 p-4">

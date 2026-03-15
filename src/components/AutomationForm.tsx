@@ -16,8 +16,8 @@ export interface FormData {
 
 const AutomationForm = ({ onSubmit, isRunning }: AutomationFormProps) => {
   const [form, setForm] = useState<FormData>({
-    username: "Admin",
-    password: "admin123",
+    username: "",
+    password: "",
     firstName: "",
     lastName: "",
     employeeId: "",
@@ -32,6 +32,13 @@ const AutomationForm = ({ onSubmit, isRunning }: AutomationFormProps) => {
     if (!isRunning) onSubmit(form);
   };
 
+  const isValid =
+    form.username.trim() &&
+    form.password.trim() &&
+    form.firstName.trim() &&
+    form.lastName.trim() &&
+    form.employeeId.trim();
+
   return (
     <div className="rounded-lg border border-border bg-card p-6">
       <h2 className="mb-5 text-lg font-semibold text-foreground">
@@ -40,19 +47,50 @@ const AutomationForm = ({ onSubmit, isRunning }: AutomationFormProps) => {
       <form onSubmit={handleSubmit} className="space-y-4">
         <fieldset className="space-y-4" disabled={isRunning}>
           <div className="grid grid-cols-2 gap-4">
-            <InputField label="Username" name="username" value={form.username} onChange={handleChange} />
-            <InputField label="Password" name="password" type="password" value={form.password} onChange={handleChange} />
+            <InputField
+              label="Username"
+              name="username"
+              value={form.username}
+              onChange={handleChange}
+              placeholder="Admin"
+            />
+            <InputField
+              label="Password"
+              name="password"
+              type="password"
+              value={form.password}
+              onChange={handleChange}
+              placeholder="••••••••"
+            />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <InputField label="First Name" name="firstName" value={form.firstName} onChange={handleChange} placeholder="John" />
-            <InputField label="Last Name" name="lastName" value={form.lastName} onChange={handleChange} placeholder="Doe" />
+            <InputField
+              label="First Name"
+              name="firstName"
+              value={form.firstName}
+              onChange={handleChange}
+              placeholder="John"
+            />
+            <InputField
+              label="Last Name"
+              name="lastName"
+              value={form.lastName}
+              onChange={handleChange}
+              placeholder="Doe"
+            />
           </div>
-          <InputField label="Employee ID" name="employeeId" value={form.employeeId} onChange={handleChange} placeholder="EMP-0042" />
+          <InputField
+            label="Employee ID"
+            name="employeeId"
+            value={form.employeeId}
+            onChange={handleChange}
+            placeholder="EMP-0042"
+          />
         </fieldset>
 
         <button
           type="submit"
-          disabled={isRunning || !form.firstName || !form.lastName}
+          disabled={isRunning || !isValid}
           className="mt-2 flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isRunning ? (
